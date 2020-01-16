@@ -1,0 +1,273 @@
+﻿using Discord;
+using Discord.WebSocket;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using ServerRestarter_Discord.Service;
+
+namespace ServerRestarter_Discord
+{
+    public partial class MainWindow : Form
+    {
+        static List<DateTime> _restartTimes = new List<DateTime> {
+            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 1, 0, 0),
+            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 9, 0, 0),
+            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 17, 0, 0)
+        };
+        static DateTime restartTime = new DateTime();
+
+        public static Process _SPID;
+        private static Server _server;
+
+        private static bool _updateTimer = false;
+        Timer _timer = new Timer();
+
+        public MainWindow()
+        {
+            /*if (Authentication.IsValid)
+            {
+
+            }*/
+
+            InitializeComponent();
+            _server = new Server();
+
+            logBox.ReadOnly = true;
+            logBox.Text = 
+                "1. Click browse and find the cmd/bat file for the server.\n" +
+                "2. Press Start and the program will handle everything else\n" +
+                "3. Press Start Discord Bot to use discord commands(setup required)\n";
+
+        }
+
+        private void MainWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\\ServerLog " + DateTime.Today.ToString("dd-MM-yyyy") + ".txt";
+
+            StreamWriter sw = new StreamWriter(File.Open(path, FileMode.Append));
+
+            for (int i = 0; i <= logBox.Lines.Length - 1; i++)
+            {
+                sw.WriteLine(logBox.Lines[i] + "\n");
+            }
+            sw.Close();
+        }
+
+        private void ButtonStart_Click(object sender, EventArgs e)
+        {
+            if (_server.IsRunning)
+            {
+                DialogResult dialogResult = MessageBox.Show("Server is already running. Do you want to restart it?", "Running Server",
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Stop);
+                if (dialogResult == DialogResult.OK)
+                {
+                    //Stop server part
+                    _updateTimer = false;
+                    _server.StopServer(_SPID);
+                    _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
+                    _server = new Server();
+                    this.Text = "ASR | Stopped";
+
+                    //Start server part
+                    logBox.Text += "-----===>New Instance<===-----\n";
+                    _server.LogText += new EventHandler<SpecialEvent>(Server_Log);
+                    _SPID = _server.StartServer(textBoxPath.Text);
+                    this.Text = "ASR | Started";
+                    _updateTimer = true;
+                    TimerUpdate();
+                }
+            } else
+            {
+                logBox.Text += "-----===>New Instance<===-----\n";
+                _server.LogText += new EventHandler<SpecialEvent>(Server_Log);
+                _SPID = _server.StartServer(textBoxPath.Text);
+                this.Text = "ASR | Started";
+                _updateTimer = true;
+                TimerUpdate();
+            } 
+        }
+
+        private void ButtonStop_Click(object sender, EventArgs e)
+        {
+            if (!_server.IsRunning)
+                return;
+
+            DialogResult dialogResult = MessageBox.Show("Are you sure you want to stop the server?", "Stop server",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+            if (dialogResult == DialogResult.Yes)
+            {
+                _updateTimer = false;
+                _server.StopServer(_SPID);
+                _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
+                _server = new Server();
+                this.Text = "ASR | Stopped";
+            }
+        }
+
+        private void ButtonBrowse_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFile = new OpenFileDialog {
+                Title = "Browse To Server File",
+                DefaultExt = "cmd",
+                Filter = "CMD files (*.cmd)|*.cmd|BAT files (*.bat)|*.bat|All files (*.*)|*.*"
+            };
+
+            if (openFile.ShowDialog() == DialogResult.OK)
+            {
+                textBoxPath.Text = openFile.FileName;
+            }
+        }
+
+        DateTime GetClosestTime()
+        {
+            long min = long.MaxValue;
+            long diff;
+            foreach (DateTime rt in _restartTimes)
+            {
+                if (DateTime.Now < rt)
+                {
+                    diff = Math.Abs(DateTime.Now.Ticks - rt.Ticks);
+                    if (diff < min)
+                    {
+                        min = diff;
+                        restartTime = rt;
+                    }
+                }
+            }
+            return restartTime;
+        }
+
+        void TimerUpdate()
+        {
+            _timer.Interval = 500;
+            _timer.Tick += new EventHandler(Tick);
+            TimeSpan ts = GetClosestTime().Subtract(DateTime.Now);
+            labelTime.Text = ts.ToString("'Restart in 'h' Hours, 'm' Minutes and 's' Seconds'");
+            _timer.Start();
+        }
+
+        void Tick(object sender, EventArgs e)
+        {
+            if (_updateTimer)
+            {
+                _restartTimes = new List<DateTime> {
+                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 1, 0, 0),
+                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 9, 0, 0),
+                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 17, 0, 0)
+                };
+
+                TimeSpan ts = GetClosestTime().Subtract(DateTime.Now);
+                labelTime.Text = ts.ToString("'Restart in 'h' Hours, 'm' Minutes and 's' Seconds'");
+            }
+            else
+            {
+                labelTime.Text = "Restart in ";
+                _timer.Stop();
+            }
+        }
+
+        //LOGGING METHODS
+        private static string _lastMessage = "";
+        private static int _messageCount = 1;
+        private static DateTime _messageTime = DateTime.Now;
+        private void LogWrite(string text)
+        {
+            if (text == _lastMessage)
+            {
+                _messageCount++;
+
+                string[] lines = logBox.Lines;
+                lines[lines.Length - 2] = $"{_messageTime} - {DateTime.Now} > {text} x{_messageCount}";
+                logBox.Lines = lines;
+            }
+            else
+            {
+                logBox.Text += $"{DateTime.Now} > {text} \n";
+                _messageCount = 1;
+                _messageTime = DateTime.Now;
+            }
+            _lastMessage = text;
+        }
+
+        void Server_Log(object sender, SpecialEvent e)
+        {
+            BeginInvoke(new Action(
+            () =>
+                {
+                    if (e.Text == _lastMessage)
+                    {
+                        _messageCount++;
+
+                        string[] lines = logBox.Lines;
+                        lines[lines.Length-2] = $"{_messageTime} - {DateTime.Now} > {e.Text} x{_messageCount}";
+                        logBox.Lines = lines;
+                    }
+                    else
+                    {
+                        logBox.Text += $"{DateTime.Now} > {e.Text} \n";
+                        _messageCount = 1;
+                        _messageTime = DateTime.Now;
+                    }
+                    _lastMessage = e.Text;
+                }
+            ));
+        }
+
+        //Automatic scrolling
+        private void LogBox_TextChanged(object sender, EventArgs e)
+        {
+            logBox.SelectionStart = logBox.Text.Length;
+            logBox.ScrollToCaret();
+        }
+
+
+        //Discord related stuff
+        private DiscordSocketClient _client;
+        private CommandHandler _commandHandler;
+
+        private async void ButtonDcBot_ClickAsync(object sender, EventArgs e)
+        {
+            buttonDcBot.Enabled = false;
+            _client = new DiscordSocketClient();
+            _commandHandler = new CommandHandler();
+
+            LogClient += new EventHandler<SpecialEvent>(Server_Log);
+            _client.Log += Client_Log;
+
+            try
+            {
+                await _client.LoginAsync(TokenType.Bot, ConfigurationManager.AppSettings["DiscordToken"].ToString());
+                await _client.StartAsync();
+                await _commandHandler.InstallCommandsAsync(_client);
+            }
+            catch (Exception exceptiopn)
+            {
+                LogWrite(exceptiopn.ToString());
+            }
+
+            // Block this task until the program is closed.
+            await Task.Delay(-1);
+        }
+
+        public event EventHandler<SpecialEvent> LogClient;
+        private Task Client_Log(LogMessage msg)
+        {
+            SpecialEvent e = new SpecialEvent(msg.ToString());
+            LogClient?.Invoke(this, e);
+            return Task.CompletedTask;
+        }
+    }
+
+    public class SpecialEvent : EventArgs
+    {
+        public SpecialEvent(string text)
+        {
+            Text = text;
+        }
+        public string Text { get; }
+    }
+}
