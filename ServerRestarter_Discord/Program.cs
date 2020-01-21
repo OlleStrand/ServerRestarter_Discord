@@ -12,11 +12,6 @@ using System.Windows.Forms;
 
 namespace ServerRestarter_Discord
 {
-    class ServerInfo
-    {
-
-    }
-
     class Program
     {
         [STAThread]
@@ -25,12 +20,6 @@ namespace ServerRestarter_Discord
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainWindow());
-
         }
-    }
-
-    public class Commands : ModuleBase<SocketCommandContext>
-    {
-
     }
 }

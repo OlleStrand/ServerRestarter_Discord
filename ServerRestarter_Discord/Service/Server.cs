@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Management;
+using ServerRestarter_Discord.Service;
 
 namespace ServerRestarter_Discord
 {
@@ -24,6 +25,7 @@ namespace ServerRestarter_Discord
 
             proc.StartInfo.Arguments = batFilePath != "" ? "/c " + batFilePath : "/c pause";
 
+            Log("-----===> New Instance <=== -----");
             Log("Starting Server...");
 
             proc.Start();
@@ -66,8 +68,11 @@ namespace ServerRestarter_Discord
 
         private bool ShouldRestart(Process proc, string batFilePath)
         {
-            if (_restartHours.Contains(Convert.ToInt32(DateTime.Now.Hour)) && DateTime.Now.Minute == 0 && IsRunning && !_restarted)
+            if (ServerInfo.RestartHours.Contains(DateTime.Now.Hour) && IsRunning && !_restarted)
             {
+                if (DateTime.Now.Minute != ServerInfo.RestartMinutes[ServerInfo.RestartHours.IndexOf(DateTime.Now.Hour)])
+                    return false;
+
                 IsRunning = false;
                 Log("Restarting Server");
                 StopServer(proc);

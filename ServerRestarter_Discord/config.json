@@ -1,0 +1,24 @@
+﻿{
+	"License": "ABCD-EFGH-IJKL-MNOP",
+	"Email": "example@gmail.com",
+	"DiscordToken": "DiscordToken",
+	"DefaultPath": "C:\\Servers\\START.cmd",
+	"RestartTimes": [
+		{
+			"hour": "0",
+			"minute": "0"
+		},
+		{
+			"hour": "6",
+			"minute": "0"
+		},
+		{
+			"hour": "12",
+			"minute": "0"
+		},
+		{
+			"hour": "18",
+			"minute": "0"
+		}
+	]
+}

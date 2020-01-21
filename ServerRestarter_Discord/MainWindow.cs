@@ -13,11 +13,7 @@ namespace ServerRestarter_Discord
 {
     public partial class MainWindow : Form
     {
-        static List<DateTime> _restartTimes = new List<DateTime> {
-            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 1, 0, 0),
-            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 9, 0, 0),
-            new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 17, 0, 0)
-        };
+        static List<DateTime> _restartTimes = new List<DateTime> {};
         static DateTime restartTime = new DateTime();
 
         public static Process _SPID;
@@ -34,14 +30,26 @@ namespace ServerRestarter_Discord
             }*/
 
             InitializeComponent();
+            Commands.mainWindow = this;
+
+            for (int i = 0; i < ServerInfo.RestartHours.Count; i++)
+            {
+                if (ServerInfo.RestartHours[i] <= DateTime.Now.Hour && ServerInfo.RestartMinutes[i] <= DateTime.Now.Minute)
+                    _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day+1, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
+                else
+                    _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
+            }
+
+            textBoxPath.Text = ServerInfo.DefaultPath;
             _server = new Server();
 
             logBox.ReadOnly = true;
-            logBox.Text = 
+            logBox.Text += 
                 "1. Click browse and find the cmd/bat file for the server.\n" +
                 "2. Press Start and the program will handle everything else\n" +
                 "3. Press Start Discord Bot to use discord commands(setup required)\n";
 
+            UpdateTitleText += new EventHandler<SpecialEvent>(UpdateTitle);
         }
 
         private void MainWindow_FormClosing(object sender, FormClosingEventArgs e)
@@ -57,55 +65,113 @@ namespace ServerRestarter_Discord
             sw.Close();
         }
 
-        private void ButtonStart_Click(object sender, EventArgs e)
+
+        public string StartServer(bool isDiscord = false, bool restart = false)
         {
             if (_server.IsRunning)
             {
-                DialogResult dialogResult = MessageBox.Show("Server is already running. Do you want to restart it?", "Running Server",
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Stop);
-                if (dialogResult == DialogResult.OK)
+                if (isDiscord)
                 {
+                    if (!restart)
+                        return "Server is already running";
+
                     //Stop server part
                     _updateTimer = false;
                     _server.StopServer(_SPID);
                     _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
                     _server = new Server();
-                    this.Text = "ASR | Stopped";
+                    UpdateTitle("ASR | Stopped");
 
                     //Start server part
-                    logBox.Text += "-----===>New Instance<===-----\n";
                     _server.LogText += new EventHandler<SpecialEvent>(Server_Log);
                     _SPID = _server.StartServer(textBoxPath.Text);
-                    this.Text = "ASR | Started";
+                    UpdateTitle("ASR | Started");
                     _updateTimer = true;
-                    TimerUpdate();
+                    BeginInvoke(new Action(
+                        () => TimerUpdate()
+                    ));
+
+                    return "Restarted Server";
+                } else
+                {
+                    DialogResult dialogResult = MessageBox.Show("Server is already running. Do you want to restart it?", "Running Server",
+                        MessageBoxButtons.OKCancel, MessageBoxIcon.Stop);
+                    if (dialogResult == DialogResult.OK || restart)
+                    {
+                        //Stop server part
+                        _updateTimer = false;
+                        _server.StopServer(_SPID);
+                        _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
+                        _server = new Server();
+                        UpdateTitle("ASR | Stopped");
+
+                        //Start server part
+                        _server.LogText += new EventHandler<SpecialEvent>(Server_Log);
+                        _SPID = _server.StartServer(textBoxPath.Text);
+                        UpdateTitle("ASR | Started");
+                        _updateTimer = true;
+                        BeginInvoke(new Action(
+                            () => TimerUpdate()
+                        ));
+
+                        return "";
+                    }
                 }
             } else
             {
-                logBox.Text += "-----===>New Instance<===-----\n";
-                _server.LogText += new EventHandler<SpecialEvent>(Server_Log);
                 _SPID = _server.StartServer(textBoxPath.Text);
-                this.Text = "ASR | Started";
+                UpdateTitle("ASR | Started");
                 _updateTimer = true;
-                TimerUpdate();
-            } 
+                BeginInvoke(new Action(
+                    () => TimerUpdate()
+                ));
+
+                return "Started server";
+            }
+            return "?";
         }
 
-        private void ButtonStop_Click(object sender, EventArgs e)
+        public string StopServer(bool isDiscord = false)
         {
             if (!_server.IsRunning)
-                return;
+                return "Server is not running";
 
-            DialogResult dialogResult = MessageBox.Show("Are you sure you want to stop the server?", "Stop server",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
-            if (dialogResult == DialogResult.Yes)
+            if (isDiscord)
             {
                 _updateTimer = false;
                 _server.StopServer(_SPID);
                 _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
                 _server = new Server();
-                this.Text = "ASR | Stopped";
+                UpdateTitle("ASR | Stopped");
+
+                return "Server stopped";
+            } else
+            {
+                DialogResult dialogResult = MessageBox.Show("Are you sure you want to stop the server?", "Stop server",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+                if (dialogResult == DialogResult.Yes || isDiscord)
+                {
+                    _updateTimer = false;
+                    _server.StopServer(_SPID);
+                    _server.LogText -= new EventHandler<SpecialEvent>(Server_Log);
+                    _server = new Server();
+                    UpdateTitle("ASR | Stopped");
+
+                    return "Server stopped";
+                }
             }
+
+            return "?";
+        }
+
+        private void ButtonStart_Click(object sender, EventArgs e)
+        {
+            StartServer();
+        }
+
+        private void ButtonStop_Click(object sender, EventArgs e)
+        {
+            StopServer();
         }
 
         private void ButtonBrowse_Click(object sender, EventArgs e)
@@ -154,11 +220,14 @@ namespace ServerRestarter_Discord
         {
             if (_updateTimer)
             {
-                _restartTimes = new List<DateTime> {
-                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 1, 0, 0),
-                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 9, 0, 0),
-                    new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 17, 0, 0)
-                };
+                _restartTimes.Clear();
+                for (int i = 0; i < ServerInfo.RestartHours.Count; i++)
+                {
+                    if (ServerInfo.RestartHours[i] <= DateTime.Now.Hour && ServerInfo.RestartMinutes[i] <= DateTime.Now.Minute)
+                        _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day+1, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
+                    else
+                        _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
+                }
 
                 TimeSpan ts = GetClosestTime().Subtract(DateTime.Now);
                 labelTime.Text = ts.ToString("'Restart in 'h' Hours, 'm' Minutes and 's' Seconds'");
@@ -217,13 +286,19 @@ namespace ServerRestarter_Discord
             ));
         }
 
+        void UpdateTitle(object sender, SpecialEvent e)
+        {
+            BeginInvoke(new Action(
+                () => this.Text = e.Text 
+            ));
+        }
+
         //Automatic scrolling
         private void LogBox_TextChanged(object sender, EventArgs e)
         {
             logBox.SelectionStart = logBox.Text.Length;
             logBox.ScrollToCaret();
         }
-
 
         //Discord related stuff
         private DiscordSocketClient _client;
@@ -240,13 +315,13 @@ namespace ServerRestarter_Discord
 
             try
             {
-                await _client.LoginAsync(TokenType.Bot, ConfigurationManager.AppSettings["DiscordToken"].ToString());
+                await _client.LoginAsync(TokenType.Bot, ServerInfo.DiscordToken);
                 await _client.StartAsync();
                 await _commandHandler.InstallCommandsAsync(_client);
             }
-            catch (Exception exceptiopn)
+            catch (Exception ex)
             {
-                LogWrite(exceptiopn.ToString());
+                LogWrite(ex.ToString());
             }
 
             // Block this task until the program is closed.
@@ -260,14 +335,19 @@ namespace ServerRestarter_Discord
             LogClient?.Invoke(this, e);
             return Task.CompletedTask;
         }
+
+        event EventHandler<SpecialEvent> UpdateTitleText;
+        private Task UpdateTitle(string title)
+        {
+            SpecialEvent e = new SpecialEvent(title);
+            UpdateTitleText?.Invoke(this, e);
+            return Task.CompletedTask;
+        }
     }
 
     public class SpecialEvent : EventArgs
     {
-        public SpecialEvent(string text)
-        {
-            Text = text;
-        }
+        public SpecialEvent(string text) => Text = text;
         public string Text { get; }
     }
 }
