@@ -24,10 +24,10 @@ namespace ServerRestarter_Discord
 
         public MainWindow()
         {
-            /*if (Authentication.IsValid)
+            if (Authentication.IsValid())
             {
 
-            }*/
+            }
 
             InitializeComponent();
             Commands.mainWindow = this;

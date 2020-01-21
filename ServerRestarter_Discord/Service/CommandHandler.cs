@@ -28,8 +28,7 @@ namespace ServerRestarter_Discord
         private async Task HandleCommandAsync(SocketMessage s)
         {
             // Don't process the command if it was a system message
-            var message = s as SocketUserMessage;
-            if (message == null) return;
+            if (!(s is SocketUserMessage message)) return;
 
             int argPos = 0;
             char prefix = '&';
@@ -52,7 +51,7 @@ namespace ServerRestarter_Discord
                 {
                     default:
 
-                        await s.Channel.SendMessageAsync($"Something went wrong! Details: ```" + result.ToString() + "``` Send this to the developer");
+                        await s.Channel.SendMessageAsync($"Something went wrong! Details: ```" + result.ToString() + "``` Send this to @Cünter#1634");
                         break;
                     case "UnknownCommand: Unknown command.":
 

@@ -4,22 +4,80 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Management;
+using System.Messaging;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ServerRestarter_Discord.Service
 {
     class Authentication
     {
-        public bool IsValid()
+        public static bool IsValid()
         {
-            Database database = new Database();
-            if (database.IsKeyInDB(ServerInfo.License))
+            string receieveQueue = RandomString(5);
+            string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\";
+
+            using (MessageQueue input = new MessageQueue(MainPath+"MainQueue", QueueAccessMode.Send)
+                { MessageReadPropertyFilter = { Id = true, Body = true } })
             {
-                return true;
+                using (MessageQueue output = new MessageQueue(MainPath+receieveQueue, QueueAccessMode.Receive)
+                    { MessageReadPropertyFilter = { Id = true, CorrelationId = true, Body = true, Label = true } })
+                {
+                    Message msg = new Message
+                    {
+                        Body = ServerInfo.Email + "|" + ServerInfo.License + "|" + GetHWID() + "|" + receieveQueue,
+                        TimeToReachQueue = new TimeSpan(0, 0, 20),
+                        TimeToBeReceived = new TimeSpan(0, 0, 40)
+                    };
+
+                    try
+                    {
+                        input.Send(msg);
+                        var id = msg.Id;
+                        Console.WriteLine("Sent: " + msg.Body);
+
+                        //TODO SEND BACK MESSAGE
+                        try
+                        {
+                            bool messageReceied = false;
+                            Message resultMessage = null;
+                            while (!messageReceied)
+                            {
+                                resultMessage  = output.ReceiveByCorrelationId(id);
+                                if (resultMessage != null)
+                                    messageReceied = true;
+                            }
+
+                            string label = resultMessage.Label;
+                            bool result = (bool)resultMessage.Body;
+
+                            if (!string.IsNullOrEmpty(label) && !label.Contains("ERROR") && result)
+                                return true;
+                        }
+                        catch (Exception)
+                        {
+                            return false;
+                        }
+                    }
+                    catch (MessageQueueException)
+                    {
+                        //Console.WriteLine(mqx.ToString());
+                        return false;
+                    }
+                }
             }
+
             return false;
+        }
+
+        private static Random random = new Random();
+        public static string RandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
         public static async Task<string> GetHWID()
@@ -118,27 +176,6 @@ namespace ServerRestarter_Discord.Service
                         return false;
                 return true;
             }
-        }
-    }
-
-    class Database
-    {
-        private MySqlConnection _connection;
-
-        public Database(string connVar="Default")
-        {
-            Initialize(connVar);
-        }
-
-        private void Initialize(string connVar)
-        {
-            string connstring = ConfigurationManager.ConnectionStrings[connVar].ToString();
-            _connection = new MySqlConnection(connstring);
-        }
-
-        internal bool IsKeyInDB(string license)
-        {
-            throw new NotImplementedException();
         }
     }
 }
