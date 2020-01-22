@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ServerRestarter_Discord.Service;
+using System.Collections;
 
 namespace ServerRestarter_Discord
 {
@@ -24,9 +25,13 @@ namespace ServerRestarter_Discord
 
         public MainWindow()
         {
-            if (Authentication.IsValid())
-            {
+            MSMQInstaller msmq = new MSMQInstaller();
+            msmq.Install(new Hashtable());
 
+            if (!Authentication.IsValid())
+            {
+                MessageBox.Show("Your license is inactive. Contact Olle_#1634 on Discord", "License not Valid", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Close();
             }
 
             InitializeComponent();

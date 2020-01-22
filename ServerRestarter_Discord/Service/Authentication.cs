@@ -1,5 +1,4 @@
-﻿using MySql.Data.MySqlClient;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
@@ -19,15 +18,20 @@ namespace ServerRestarter_Discord.Service
             string receieveQueue = RandomString(5);
             string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\";
 
-            using (MessageQueue input = new MessageQueue(MainPath+"MainQueue", QueueAccessMode.Send)
-                { MessageReadPropertyFilter = { Id = true, Body = true } })
+            using (MessageQueue input = new MessageQueue(MainPath + "MainQueue", QueueAccessMode.Send)
+            {
+                Formatter = new ActiveXMessageFormatter()
+            })
             {
                 using (MessageQueue output = new MessageQueue(MainPath+receieveQueue, QueueAccessMode.Receive)
-                    { MessageReadPropertyFilter = { Id = true, CorrelationId = true, Body = true, Label = true } })
+                {
+                    MessageReadPropertyFilter = { Id = true, CorrelationId = true, Body = true, Label = true },
+                    Formatter = new ActiveXMessageFormatter()
+                })
                 {
                     Message msg = new Message
                     {
-                        Body = ServerInfo.Email + "|" + ServerInfo.License + "|" + GetHWID() + "|" + receieveQueue,
+                        Body = $"{ServerInfo.Email}|{ServerInfo.License}|{GetHWID().Result.ToString()}|{receieveQueue}",
                         TimeToReachQueue = new TimeSpan(0, 0, 20),
                         TimeToBeReceived = new TimeSpan(0, 0, 40)
                     };
@@ -36,7 +40,6 @@ namespace ServerRestarter_Discord.Service
                     {
                         input.Send(msg);
                         var id = msg.Id;
-                        Console.WriteLine("Sent: " + msg.Body);
 
                         //TODO SEND BACK MESSAGE
                         try

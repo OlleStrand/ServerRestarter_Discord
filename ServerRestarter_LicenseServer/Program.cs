@@ -4,16 +4,42 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Messaging;
+using System.Threading;
 
 namespace ServerRestarter_LicenseServer
 {
     class Program
     {
-        private static readonly string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\MainQueue";
+        //private static readonly string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\MainQueue";
+        private static CancellationToken cancellationToken;
 
         static void Main(string[] args)
         {
-            //TODO SEND BACK MESSAGE
+            string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\";
+
+            using (MessageQueue input = new MessageQueue(MainPath + "MainQueue", QueueAccessMode.Receive)
+            {
+                MessageReadPropertyFilter = { Id = true, Body = true },
+                Formatter = new ActiveXMessageFormatter()
+            })
+            {
+                Console.WriteLine("Running...");
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    Message message = input.Receive();
+                    Console.WriteLine("Message Received");
+
+                    string data = message.Body.ToString();
+                    Console.WriteLine($"Received: {data}");
+
+                    string[] dataArray = data.Split('|');
+
+                    using (MessageQueue output = new MessageQueue(MainPath + dataArray[3], QueueAccessMode.Receive))
+                    {
+
+                    }
+                }
+            }
 
             Console.ReadKey();
         }

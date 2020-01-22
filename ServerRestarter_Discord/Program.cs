@@ -19,7 +19,13 @@ namespace ServerRestarter_Discord
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainWindow());
+            try
+            {
+                Application.Run(new MainWindow());
+            }
+            catch (Exception)
+            {
+            }
         }
     }
 }
