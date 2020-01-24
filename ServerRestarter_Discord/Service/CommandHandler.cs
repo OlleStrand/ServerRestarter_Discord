@@ -51,7 +51,7 @@ namespace ServerRestarter_Discord
                 {
                     default:
 
-                        await s.Channel.SendMessageAsync($"Something went wrong! Details: ```" + result.ToString() + "``` Send this to @Cünter#1634");
+                        await s.Channel.SendMessageAsync($"Something went wrong! Details: ```" + result.ToString() + "``` Send this to @Olle_#1634");
                         break;
                     case "UnknownCommand: Unknown command.":
 

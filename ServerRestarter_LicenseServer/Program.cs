@@ -34,9 +34,22 @@ namespace ServerRestarter_LicenseServer
 
                     string[] dataArray = data.Split('|');
 
-                    using (MessageQueue output = new MessageQueue(MainPath + dataArray[3], QueueAccessMode.Receive))
+                    using (MessageQueue output = new MessageQueue(MainPath + dataArray[3], QueueAccessMode.Send))
                     {
+                        if (!MessageQueue.Exists(output.Path))
+                        {
+                            try
+                            {
+                                MessageQueue.Create(output.Path);
 
+                                Console.WriteLine("Queue Created:");
+                                Console.WriteLine($"Path: {output.Path}");
+                            }
+                            catch (MessageQueueException mqx)
+                            {
+                                Console.WriteLine(mqx.ToString());
+                            }
+                        }
                     }
                 }
             }
