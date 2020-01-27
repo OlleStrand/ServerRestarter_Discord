@@ -4,10 +4,13 @@ using System.Configuration;
 using System.Linq;
 using System.Management;
 using System.Messaging;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace ServerRestarter_Discord.Service
 {
@@ -17,23 +20,26 @@ namespace ServerRestarter_Discord.Service
         {
             string receieveQueue = RandomString(5);
             string MainPath = @"FormatName:Direct=TCP:173.249.11.2\private$\";
+            //string MainPath = @".\private$\";
 
             using (MessageQueue input = new MessageQueue(MainPath + "MainQueue", QueueAccessMode.Send)
             {
-                Formatter = new ActiveXMessageFormatter()
+                Formatter = new XmlMessageFormatter()
             })
             {
-                using (MessageQueue output = new MessageQueue(MainPath+receieveQueue, QueueAccessMode.Receive)
+                using (MessageQueue output = new MessageQueue(MainPath + "ReceiveQueue", QueueAccessMode.Receive)
                 {
                     MessageReadPropertyFilter = { Id = true, CorrelationId = true, Body = true, Label = true },
-                    Formatter = new ActiveXMessageFormatter()
+                    Formatter = new XmlMessageFormatter(new string[] { "System.String,mscorlib" })
                 })
                 {
-                    Message msg = new Message
+                    System.Messaging.Message msg = new System.Messaging.Message
                     {
-                        Body = $"{ServerInfo.Email}|{ServerInfo.License}|{GetHWID().Result.ToString()}|{receieveQueue}",
+                        Body = $"{ServerInfo.Email}|{ServerInfo.License}|{GetHWID().Result.ToString()}",
+                        Label = "LicenseRequest",
                         TimeToReachQueue = new TimeSpan(0, 0, 20),
                         TimeToBeReceived = new TimeSpan(0, 0, 40)
+                        
                     };
 
                     try
@@ -41,31 +47,31 @@ namespace ServerRestarter_Discord.Service
                         input.Send(msg);
                         var id = msg.Id;
 
+                        Thread.Sleep(1000);
+
                         //TODO SEND BACK MESSAGE
                         try
                         {
-                            bool messageReceied = false;
-                            Message resultMessage = null;
-                            while (!messageReceied)
-                            {
-                                resultMessage  = output.ReceiveByCorrelationId(id);
-                                if (resultMessage != null)
-                                    messageReceied = true;
-                            }
+                            //System.Messaging.Message peek = output.Peek();
+
+                            System.Messaging.Message resultMessage = output.ReceiveByCorrelationId(id);
 
                             string label = resultMessage.Label;
-                            bool result = (bool)resultMessage.Body;
+                            bool result = resultMessage.Body.ToString() == "true" ? true : false;
 
                             if (!string.IsNullOrEmpty(label) && !label.Contains("ERROR") && result)
                                 return true;
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
+                            MessageBox.Show(e.ToString());
+
                             return false;
                         }
                     }
-                    catch (MessageQueueException)
+                    catch (MessageQueueException mqx)
                     {
+                        MessageBox.Show(mqx.ToString());
                         //Console.WriteLine(mqx.ToString());
                         return false;
                     }
@@ -73,6 +79,19 @@ namespace ServerRestarter_Discord.Service
             }
 
             return false;
+        }
+
+        public static string GetLocalIPAddress()
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+            throw new Exception("No network adapters with an IPv4 address in the system!");
         }
 
         private static Random random = new Random();

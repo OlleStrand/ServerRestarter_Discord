@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ServerRestarter_Discord.Service;
 using System.Collections;
+using System.Threading;
 
 namespace ServerRestarter_Discord
 {
@@ -21,29 +22,34 @@ namespace ServerRestarter_Discord
         private static Server _server;
 
         private static bool _updateTimer = false;
-        Timer _timer = new Timer();
+        System.Windows.Forms.Timer _timer = new System.Windows.Forms.Timer();
 
         public MainWindow()
         {
+            Thread t = new Thread(new ThreadStart(SplashScreen));
+            t.Start();
+
             MSMQInstaller msmq = new MSMQInstaller();
             msmq.Install(new Hashtable());
 
             if (!Authentication.IsValid())
             {
                 MessageBox.Show("Your license is inactive. Contact Olle_#1634 on Discord", "License not Valid", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                t.Abort();
                 Close();
             }
-
-            InitializeComponent();
-            Commands.mainWindow = this;
 
             for (int i = 0; i < ServerInfo.RestartHours.Count; i++)
             {
                 if (ServerInfo.RestartHours[i] <= DateTime.Now.Hour && ServerInfo.RestartMinutes[i] <= DateTime.Now.Minute)
-                    _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day+1, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
+                    _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
                 else
                     _restartTimes.Add(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, ServerInfo.RestartHours[i], ServerInfo.RestartMinutes[i], 0));
             }
+
+            InitializeComponent();
+            Commands.mainWindow = this;
+            t.Abort();
 
             textBoxPath.Text = ServerInfo.DefaultPath;
             _server = new Server();
@@ -55,6 +61,13 @@ namespace ServerRestarter_Discord
                 "3. Press Start Discord Bot to use discord commands(setup required)\n";
 
             UpdateTitleText += new EventHandler<SpecialEvent>(UpdateTitle);
+        }
+
+        private void SplashScreen()
+        {
+            try { Application.Run(new SplashScreen()); }
+            catch (Exception) {  }
+            
         }
 
         private void MainWindow_FormClosing(object sender, FormClosingEventArgs e)

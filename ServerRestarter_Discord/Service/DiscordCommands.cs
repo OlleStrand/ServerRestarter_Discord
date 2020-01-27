@@ -16,7 +16,7 @@ namespace ServerRestarter_Discord
         [Summary("Start the server")]
         public async Task Start()
         {
-            var user = Context.User as SocketGuildUser;
+            SocketGuildUser user = Context.User as SocketGuildUser;
             if (!user.GuildPermissions.Administrator)
             {
                 var msg = await ReplyAsync("You don't have permission to perform this command");
@@ -47,7 +47,7 @@ namespace ServerRestarter_Discord
         }
 
         [Command("restart")]
-        [Summary("Start the server")]
+        [Summary("Restart the server")]
         public async Task Restart()
         {
             var user = Context.User as SocketGuildUser;

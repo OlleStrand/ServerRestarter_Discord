@@ -12,6 +12,7 @@ namespace ServerRestarter_Discord.Service
 {
     class MSMQInstaller : Installer
     {
+
         public MSMQInstaller()
         {
 
@@ -98,6 +99,11 @@ namespace ServerRestarter_Discord.Service
                     }
                 }
             }
+        }
+
+        private void InitializeComponent()
+        {
+
         }
     }
 }
