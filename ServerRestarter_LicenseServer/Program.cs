@@ -37,20 +37,46 @@ namespace ServerRestarter_LicenseServer
                     using (MessageQueue output = new MessageQueue(MainPath + "ReceiveQueue", QueueAccessMode.Send))
                     {
                         //Do Database stuff
+                        DBConnect dBConnect = new DBConnect("root");
 
                         Message msg = new Message
                         {
-                            Body = "true",
+                            Body = "false",
                             Label = "LicenseResponse",
                             TimeToReachQueue = new TimeSpan(0, 0, 20),
                             TimeToBeReceived = new TimeSpan(0, 0, 40),
                             CorrelationId = message.Id
                         };
 
+                        Console.WriteLine("Checking Database...");
+                        if (dBConnect.IsKeyInDB(dataArray[1], dataArray[0], dataArray[2]))
+                        {
+                            Console.WriteLine("Database:    License Found");
+                            if (dBConnect.IsKeyValid(dataArray[1], dataArray[2]))
+                            {
+                                Console.WriteLine("Database:    License Valid");
+                                msg = new Message
+                                {
+                                    Body = "true",
+                                    Label = "LicenseResponse",
+                                    TimeToReachQueue = new TimeSpan(0, 0, 20),
+                                    TimeToBeReceived = new TimeSpan(0, 0, 40),
+                                    CorrelationId = message.Id
+                                };
+                            }
+                            else
+                            {
+                                Console.WriteLine("Database:    License Not Valid");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Database:    License Not Found");
+                        }
+
                         Console.WriteLine($"Sending Message: {msg.Body} with CorrleationId: {msg.CorrelationId}");
                         output.Send(msg);
 
-                        Thread.Sleep(1000);
                         Console.WriteLine("\nListening...");
                     }
                 }

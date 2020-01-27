@@ -27,7 +27,7 @@ namespace ServerRestarter_Discord.Service
                 Formatter = new XmlMessageFormatter()
             })
             {
-                using (MessageQueue output = new MessageQueue(MainPath + "ReceiveQueue", QueueAccessMode.Receive)
+                using (MessageQueue output = new MessageQueue(MainPath + "receivequeue", QueueAccessMode.Receive)
                 {
                     MessageReadPropertyFilter = { Id = true, CorrelationId = true, Body = true, Label = true },
                     Formatter = new XmlMessageFormatter(new string[] { "System.String,mscorlib" })
